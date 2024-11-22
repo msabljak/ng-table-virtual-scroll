@@ -1,5 +1,9 @@
 import { VIRTUAL_SCROLL_STRATEGY } from '@angular/cdk/scrolling';
-import { CanStick, CdkTable } from '@angular/cdk/table';
+import {
+  CanStick,
+  CdkTable,
+  CdkTableDataSourceInput,
+} from '@angular/cdk/table';
 import {
   AfterContentInit,
   ContentChild,
@@ -11,12 +15,8 @@ import {
   OnDestroy,
 } from '@angular/core';
 import { MatTable } from '@angular/material/table';
-import {
-  FixedSizeTableVirtualScrollStrategy,
-  isTVSDataSource,
-  TableVirtualScrollDataSource,
-  CdkTableVirtualScrollDataSource,
-} from 'ng-table-virtual-scroll';
+import { FixedSizeTableVirtualScrollStrategy } from './fixed-size-table-virtual-scroll-strategy';
+import { CdkTableVirtualScrollDataSource, isTVSDataSource, TableVirtualScrollDataSource } from './table-data-source';
 import { combineLatest, from, Subject } from 'rxjs';
 import {
   delayWhen,
@@ -28,6 +28,7 @@ import {
   takeUntil,
   tap,
 } from 'rxjs/operators';
+
 
 export function _tableVirtualScrollDirectiveStrategyFactory(tableDir: TableItemSizeDirective) {
   return tableDir.scrollStrategy;
@@ -122,7 +123,11 @@ export class TableItemSizeDirective<T = unknown>
 
   ngAfterContentInit() {
     const switchDataSourceOrigin = this.table['_switchDataSource'];
-    this.table['_switchDataSource'] = (dataSource: any) => {
+    this.table['_switchDataSource'] = (
+      dataSource:
+        | TableVirtualScrollDataSource<T>
+        | CdkTableVirtualScrollDataSource<T>,
+    ) => {
       switchDataSourceOrigin.call(this.table, dataSource);
       this.connectDataSource(dataSource);
     };
@@ -137,20 +142,7 @@ export class TableItemSizeDirective<T = unknown>
       }
     };
 
-    if (
-      isTVSDataSource(this.table.dataSource) &&
-      ((isMatTable(this.table) &&
-        !(this.table.dataSource instanceof TableVirtualScrollDataSource)) ||
-        (isCdkTable(this.table) &&
-          !(this.table.dataSource instanceof CdkTableVirtualScrollDataSource)))
-    ) {
-      if (
-        this.table.dataSource instanceof TableVirtualScrollDataSource ||
-        this.table.dataSource instanceof CdkTableVirtualScrollDataSource
-      ) {
-        this.connectDataSource(this.table.dataSource);
-      }
-    }
+    this.connectDataSource(this.table.dataSource);
 
     combineLatest([
       this.scrollStrategy.stickyChange,
@@ -179,7 +171,8 @@ export class TableItemSizeDirective<T = unknown>
   connectDataSource(
     dataSource:
       | TableVirtualScrollDataSource<T>
-      | CdkTableVirtualScrollDataSource<T>,
+      | CdkTableVirtualScrollDataSource<T>
+      | CdkTableDataSourceInput<T>,
   ) {
     this.dataSourceChanges.next();
     if (!isTVSDataSource(dataSource)) {
